@@ -245,8 +245,8 @@ static int IMGUI_CDECL CompareWithSortSpecs(const void* lhs, const void* rhs)
     ImGuiPerfTool* tool = PerfToolInstance;
     const ImGuiTableSortSpecs* sort_specs = PerfToolInstance->_InfoTableSortSpecs;
     int batch_index_a, entry_index_a, mono_index_a, batch_index_b, entry_index_b, mono_index_b;
-    tool->_UnpackSortedKey(*(int*)lhs, &batch_index_a, &entry_index_a, &mono_index_a);
-    tool->_UnpackSortedKey(*(int*)rhs, &batch_index_b, &entry_index_b, &mono_index_b);
+    tool->_UnpackSortedKey(*(ImU64*)lhs, &batch_index_a, &entry_index_a, &mono_index_a);
+    tool->_UnpackSortedKey(*(ImU64*)rhs, &batch_index_b, &entry_index_b, &mono_index_b);
     for (int i = 0; i < sort_specs->SpecsCount; i++)
     {
         const ImGuiTableColumnSortSpecs* specs = &sort_specs->Specs[i];
@@ -265,10 +265,10 @@ static int IMGUI_CDECL CompareWithSortSpecs(const void* lhs, const void* rhs)
             result = col_info.GetValue<int>(a) - col_info.GetValue<int>(b);
             break;
         case ImGuiDataType_Float:
-            result = col_info.GetValue<float>(a) - col_info.GetValue<float>(b);
+            result = (int)((col_info.GetValue<float>(a) - col_info.GetValue<float>(b)) * 1000.0f);
             break;
         case ImGuiDataType_Double:
-            result = col_info.GetValue<double>(a) - col_info.GetValue<double>(b);
+            result = (int)((col_info.GetValue<double>(a) - col_info.GetValue<double>(b)) * 1000.0);
             break;
         case ImGuiDataType_COUNT:
             result = strcmp(col_info.GetValue<const char*>(a), col_info.GetValue<const char*>(b));
@@ -926,9 +926,8 @@ bool ImGuiPerfTool::SaveHtmlReport(const char* file_name, const char* image_file
 
     for (int row_index = _InfoTableSort.Size - 1; row_index >= 0; row_index--)
     {
-        int key_sorted = _InfoTableSort[row_index];
         int batch_index_sorted, entry_index_sorted;
-        _UnpackSortedKey(key_sorted, &batch_index_sorted, &entry_index_sorted);
+        _UnpackSortedKey(_InfoTableSort[row_index], &batch_index_sorted, &entry_index_sorted);
         ImGuiPerfToolBatch* batch = &_Batches[batch_index_sorted];
         ImGuiPerfToolEntry* entry = &batch->Entries[entry_index_sorted];
         const char* test_name = entry->TestName;
@@ -1495,9 +1494,8 @@ void ImGuiPerfTool::_ShowEntriesTable()
 
     for (int row_index = _InfoTableSort.Size - 1; row_index >= 0; row_index--)
     {
-        int key_sorted = _InfoTableSort[row_index];
         int batch_index_sorted, entry_index_sorted;
-        _UnpackSortedKey(key_sorted, &batch_index_sorted, &entry_index_sorted);
+        _UnpackSortedKey(_InfoTableSort[row_index], &batch_index_sorted, &entry_index_sorted);
         ImGuiPerfToolBatch* batch = &_Batches[batch_index_sorted];
         ImGuiPerfToolEntry* entry = &batch->Entries[entry_index_sorted];
         const char* test_name = entry->TestName;
@@ -1708,8 +1706,8 @@ void ImGuiPerfTool::_UnpackSortedKey(ImU64 key, int* batch_index, int* entry_ind
     IM_ASSERT(batch_index != NULL);
     IM_ASSERT(entry_index != NULL);
     const int num_visible_labels = _GetNumVisibleLabels();
-    *batch_index = (key >> 24) / num_visible_labels;
-    *entry_index = (key >> 24) % num_visible_labels;
+    *batch_index = (int)((key >> 24) / num_visible_labels);
+    *entry_index = (int)((key >> 24) % num_visible_labels);
     if (monotonic_index)
         *monotonic_index = (int)(key & 0xFFFFFF);
 }
