@@ -20,8 +20,9 @@
 # * Test MacOS: run MacOS tests.
 # * Full CI: perform full CI builds/tests.
 #
-# Forks may create a GitHub Actions secret named 'RUN_TESTS_ALWAYS' with value '1' to allow MacOS tests be executed on
-# every push to repository.
+# Forks may create a GitHub Actions secret named 'RUN_TESTS_ALWAYS' with non-empty value to allow MacOS tests be
+# executed on every push to repository. Value must be random enough to avoid GitHub Actions censoring random text. For
+# example do not set it to '1' as it will mangle random text in the logs.
 #
 name: tests
 
@@ -118,19 +119,19 @@ jobs:
       - name: Run Tests
         # capture_implot_demo alone takes about 60s to run on CI worker therefore it is disabled to save time.
         run: |
-          timeout 300 imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 tests,-capture_implot_demo
+          timeout 300 imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 -nocapture -export-format markdown-min -export-file $GITHUB_STEP_SUMMARY perf_draw_split,tests,-capture_implot_demo
 
       - name: Run Viewport Tests
         if: matrix.branch == 'docking'
         run: |
-          timeout 300 imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 -viewport-mock viewport
+          timeout 300 imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 -nocapture -export-format markdown-min -export-file $GITHUB_STEP_SUMMARY -viewport-mock viewport
 
   # MacOS minutes are expensive (x10) for private repo so reduce the amount of tests running there for now.
   # Builds are performed only for docking branch and tests are only performed daily or on request.
   MacOS:
     runs-on: macos-11
     env:
-      SHOULD_TEST: ${{ contains(github.event.head_commit.message, 'Test MacOS') || contains(github.event.head_commit.message, 'Full CI') || secrets.RUN_TESTS_ALWAYS == '1' || github.event_name == 'workflow_run' }}
+      SHOULD_TEST: ${{ contains(github.event.head_commit.message, 'Test MacOS') || contains(github.event.head_commit.message, 'Full CI') || secrets.RUN_TESTS_ALWAYS != '' || github.event_name == 'workflow_run' }}
 
     strategy:
       fail-fast: false
@@ -156,12 +157,12 @@ jobs:
       - name: Run Tests
         if: env.SHOULD_TEST == 'true'
         run: |
-          imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 tests
+          imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 -nocapture -export-format markdown-min -export-file $GITHUB_STEP_SUMMARY perf_draw_split,tests,-capture_implot_demo
 
       - name: Run Viewport Tests
         if: env.SHOULD_TEST == 'true' && matrix.branch == 'docking'
         run: |
-          imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 -viewport-mock viewport
+          imgui_tests/imgui_tests -nogui -nopause -v2 -ve4 -nocapture -viewport-mock -export-format markdown-min -export-file $GITHUB_STEP_SUMMARY viewport
 
   # Windows minutes are a little expensive (x2) for private repo so reduce the amount of tests running there for now.
   # Builds and tests are performed only for docking branch and x64 arch. Daily builds also include x86.
@@ -221,10 +222,12 @@ jobs:
 
       - name: Run Tests
         if: env.SHOULD_BUILD == 'true'
+        shell: bash
         run: |
-          imgui_tests/Release/imgui_tests.exe -nogui -nopause -v2 -ve4 tests
+          imgui_tests/Release/imgui_tests.exe -nogui -nopause -v2 -ve4 -nocapture -export-format markdown-min -export-file $GITHUB_STEP_SUMMARY perf_draw_split,tests,-capture_implot_demo
 
       - name: Run Viewport Tests
         if: env.SHOULD_BUILD == 'true' && matrix.branch == 'docking'
+        shell: bash
         run: |
-          imgui_tests/Release/imgui_tests.exe -nogui -nopause -v2 -ve4 -viewport-mock viewport
+          imgui_tests/Release/imgui_tests.exe -nogui -nopause -v2 -ve4 -nocapture -viewport-mock -export-format markdown-min -export-file $GITHUB_STEP_SUMMARY viewport
