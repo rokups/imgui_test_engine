@@ -234,6 +234,7 @@ struct IMGUI_API ImGuiTestEngineIO
 
     // Options: Export
     const char*                 ExportResultsFilename = NULL;
+    const char*                 ExportResultsDescription = NULL;
     ImGuiTestEngineExportFormat ExportResultsFormat = (ImGuiTestEngineExportFormat)0;
 
     //-------------------------------------------------------------------------
@@ -356,8 +357,8 @@ struct IMGUI_API ImGuiTest
     // Test Status
     ImGuiTestStatus                 Status = ImGuiTestStatus_Unknown;
     ImGuiTestLog                    TestLog;
-    ImU64                           StartTime = 0;
-    ImU64                           EndTime = 0;
+    ImU64                           StartTime = 0;                  // Microseconds
+    ImU64                           EndTime = 0;                    // Microseconds
     int                             GuiFuncLastFrame = -1;
 
     // User variables (which are instantiated when running the test)

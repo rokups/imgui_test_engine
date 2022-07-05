@@ -113,6 +113,7 @@ struct TestApp
     int                     OptStressAmount = 5;
     Str128                  OptSourceFileOpener;
     Str128                  OptExportFilename;
+    Str128                  OptExportDescription;
     ImGuiTestEngineExportFormat OptExportFormat = ImGuiTestEngineExportFormat_JUnitXml;
     ImVector<char*>         TestsToRun;
 };
@@ -245,6 +246,17 @@ static bool ParseCommandLineOptions(int argc, char** argv)
                 if (strcmp(argv[n + 1], "junit") == 0)
                 {
                     g_App.OptExportFormat = ImGuiTestEngineExportFormat_JUnitXml;
+                    n++;
+                }
+                else if (strcmp(argv[n + 1], "markdown") == 0 || strcmp(argv[n + 1], "md") == 0)
+                {
+                    g_App.OptExportFormat = ImGuiTestEngineExportFormat_Markdown;
+                    n++;
+                }
+                else if (strcmp(argv[n + 1], "markdown-min") == 0 || strcmp(argv[n + 1], "md-min") == 0)
+                {
+                    g_App.OptExportFormat = ImGuiTestEngineExportFormat_MarkdownMinimal;
+                    n++;
                 }
                 else
                 {
@@ -256,6 +268,7 @@ static bool ParseCommandLineOptions(int argc, char** argv)
             else if (strcmp(argv[n], "-export-file") == 0 && n + 1 < argc)
             {
                 g_App.OptExportFilename = argv[n + 1];
+                n++;
             }
             else if (strcmp(argv[n], "--") == 0)
             {
@@ -278,7 +291,7 @@ static bool ParseCommandLineOptions(int argc, char** argv)
                 printf("  -stressamount <int>      : set performance test duration multiplier (default: 5)\n");
                 printf("  -fileopener <file>       : provide a bat/cmd/shell script to open source file.\n");
                 printf("  -export-file <file>      : save test run results in specified file.\n");
-                printf("  -export-format <format>   : save test run results in specified format. (default: junit)\n");
+                printf("  -export-format <format>  : save test run results in specified format. [junit, markdown, markdown-min] (default: junit)\n");
                 printf("Tests:\n");
                 printf("   all/tests/perf          : queue by groups: all, only tests, only performance benchmarks.\n");
                 printf("   [pattern]               : queue all tests containing the word [pattern].\n");
@@ -533,7 +546,14 @@ int main(int argc, char** argv)
     {
         if (!g_App.TestsToRun.empty())
         {
+            for (const char* filter : g_App.TestsToRun)
+            {
+                if (!g_App.OptExportDescription.empty())
+                    g_App.OptExportDescription.append(",");
+                g_App.OptExportDescription.append(filter);
+            }
             test_io.ExportResultsFilename = g_App.OptExportFilename.c_str();
+            test_io.ExportResultsDescription = g_App.OptExportDescription.c_str();
             test_io.ExportResultsFormat = !g_App.OptExportFilename.empty() ? g_App.OptExportFormat : ImGuiTestEngineExportFormat_None;
         }
         else

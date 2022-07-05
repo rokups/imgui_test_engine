@@ -46,6 +46,8 @@ enum ImGuiTestEngineExportFormat : int
 {
     ImGuiTestEngineExportFormat_None = 0,
     ImGuiTestEngineExportFormat_JUnitXml,
+    ImGuiTestEngineExportFormat_Markdown,
+    ImGuiTestEngineExportFormat_MarkdownMinimal     // Export only most important information that needs immediate attention.
 };
 
 //-------------------------------------------------------------------------
@@ -55,4 +57,4 @@ enum ImGuiTestEngineExportFormat : int
 void ImGuiTestEngine_PrintResultSummary(ImGuiTestEngine* engine);
 
 void ImGuiTestEngine_Export(ImGuiTestEngine* engine);
-void ImGuiTestEngine_ExportEx(ImGuiTestEngine* engine, ImGuiTestEngineExportFormat format, const char* filename);
+void ImGuiTestEngine_ExportEx(ImGuiTestEngine* engine, ImGuiTestEngineExportFormat format, const char* filename, const char* description = "");
