@@ -1863,9 +1863,7 @@ void RegisterTests_PerfTool(ImGuiTestEngine* e)
         ImGui::SetWindowSize(window, size_bkp);
         SetPerfToolWindowOpen(ctx, perf_was_open);                   // Restore window visibility
 
-        const char* perf_report_output = getenv("CAPTURE_PERF_REPORT_OUTPUT");
-        if (perf_report_output == NULL)
-            perf_report_output = PerfToolReportDefaultOutputPath;
+        const char* perf_report_output = ImOsGetEnv("IM_CAPTURE_PERF_REPORT_OUTPUT", PerfToolReportDefaultOutputPath);
         perftool->SaveHtmlReport(perf_report_output, perf_report_image);
     };
 }

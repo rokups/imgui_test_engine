@@ -883,6 +883,14 @@ void    ImOsOutputDebugString(const char* message)
 #endif
 }
 
+const char* ImOsGetEnv(const char* env_var, const char* default_val)
+{
+    const char* var = getenv(env_var);
+    if (var == NULL)
+        var = default_val;
+    return var;
+}
+
 //-----------------------------------------------------------------------------
 // Miscellaneous functions
 //-----------------------------------------------------------------------------

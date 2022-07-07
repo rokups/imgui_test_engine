@@ -125,6 +125,7 @@ void        ImOsOpenInShell(const char* path);
 void        ImOsConsoleSetTextColor(ImOsConsoleStream stream, ImOsConsoleTextColor color);
 bool        ImOsIsDebuggerPresent();
 void        ImOsOutputDebugString(const char* message);
+const char* ImOsGetEnv(const char* env_var, const char* default_val = "");
 
 //-----------------------------------------------------------------------------
 // Miscellaneous functions

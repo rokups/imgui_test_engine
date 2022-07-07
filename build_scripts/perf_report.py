@@ -104,7 +104,7 @@ def main():
                 return -1
         try:
             env = dict(os.environ)
-            env['CAPTURE_PERF_REPORT_OUTPUT'] = args.output
+            env['IM_CAPTURE_PERF_REPORT_OUTPUT'] = args.output
             subprocess.call([imgui_tests_exe, '-gui', '-nopause', '-v2', '-ve4', 'capture_perf_report'], env=env)
         except subprocess.CalledProcessError:
             logging.error('imgui_tests returned an error when generating a performance report.')

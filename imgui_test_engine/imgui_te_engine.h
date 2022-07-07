@@ -204,6 +204,7 @@ struct IMGUI_API ImGuiTestEngineIO
     bool                        ConfigLogToDebugger = false;
     bool                        ConfigTakeFocusBackAfterTests = true;
     bool                        ConfigCaptureEnabled = true;        // Master enable flags for capturing and saving captures. Disable to avoid e.g. lengthy saving of large PNG files.
+    bool                        ConfigCaptureTempDisabled = false;  // Suppress capture functions temporarily (not saved to .ini), do not produce capture warnings. Set by -nocapture, useful for CI.
     bool                        ConfigCaptureOnError = false;
     bool                        ConfigNoThrottle = false;           // Disable vsync for performance measurement or fast test running
     bool                        ConfigMouseDrawCursor = true;       // Enable drawing of Dear ImGui software mouse cursor when running tests

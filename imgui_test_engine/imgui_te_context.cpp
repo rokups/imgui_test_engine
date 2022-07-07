@@ -656,10 +656,16 @@ ImVec2 ImGuiTestContext::GetMainMonitorWorkSize()
     return ImGui::GetMainViewport()->WorkSize;
 }
 
+static ImGuiTestVerboseLevel ImGuiTestContext_CaptureWarningLogLevel(ImGuiTestContext* ctx)
+{
+    ImGuiTestEngineIO* io = ctx->EngineIO;
+    return io->ConfigCaptureTempDisabled ? ImGuiTestVerboseLevel_Info : ImGuiTestVerboseLevel_Warning;;
+}
+
 static bool ImGuiTestContext_CanCaptureScreenshot(ImGuiTestContext* ctx)
 {
     ImGuiTestEngineIO* io = ctx->EngineIO;
-    return io->ConfigCaptureEnabled;
+    return io->ConfigCaptureEnabled && !io->ConfigCaptureTempDisabled;
 }
 
 static bool ImGuiTestContext_CanCaptureVideo(ImGuiTestContext* ctx)
@@ -705,7 +711,7 @@ bool ImGuiTestContext::CaptureScreenshot(int capture_flags)
     if (can_capture)
         LogInfo("Saved '%s' (%d*%d pixels)", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
     else
-        LogWarning("Skipped saving '%s' (%d*%d pixels) (enable in 'Misc->Options')", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
+        LogEx(ImGuiTestContext_CaptureWarningLogLevel(this), 0, "Skipped saving '%s' (%d*%d pixels) (enable in 'Misc->Options')", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
     return ret;
 #else
     IM_UNUSED(args);
@@ -790,10 +796,11 @@ bool ImGuiTestContext::CaptureEndVideo()
     }
     else
     {
+        ImGuiTestVerboseLevel verbose_level = ImGuiTestContext_CaptureWarningLogLevel(this);
         if (!EngineIO->ConfigCaptureEnabled)
-            LogWarning("Skipped saving '%s' video because: io.ConfigCaptureEnabled == false (enable in Misc->Options)", args->InOutputFile);
+            LogEx(verbose_level, 0, "Skipped saving '%s' video because: io.ConfigCaptureEnabled == false (enable in Misc->Options)", args->InOutputFile);
         else
-            LogWarning("Skipped saving '%s' video because: Video Encoder not found.", args->InOutputFile);
+            LogEx(verbose_level, 0, "Skipped saving '%s' video because: Video Encoder not found.", args->InOutputFile);
     }
 
     return ret;

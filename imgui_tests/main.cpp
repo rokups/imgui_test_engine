@@ -497,7 +497,7 @@ int main(int argc, char** argv)
     test_io.ConfigVerboseLevelOnError = g_App.OptVerboseLevelError;
     test_io.ConfigNoThrottle = g_App.OptNoThrottle;
     test_io.PerfStressAmount = g_App.OptStressAmount;
-    test_io.ConfigCaptureEnabled = g_App.OptCaptureEnabled;
+    test_io.ConfigCaptureTempDisabled = !g_App.OptCaptureEnabled;
     FindVideoEncoder(test_io.VideoCaptureEncoderPath, IM_ARRAYSIZE(test_io.VideoCaptureEncoderPath));
     ImStrncpy(test_io.VideoCaptureEncoderParams, IMGUI_CAPTURE_DEFAULT_VIDEO_PARAMS_FOR_FFMPEG, IM_ARRAYSIZE(test_io.VideoCaptureEncoderParams));
     ImStrncpy(test_io.GifCaptureEncoderParams, IMGUI_CAPTURE_DEFAULT_GIF_PARAMS_FOR_FFMPEG, IM_ARRAYSIZE(test_io.GifCaptureEncoderParams));
