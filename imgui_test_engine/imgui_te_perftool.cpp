@@ -446,17 +446,32 @@ static bool RenderMultiSelectFilter(ImGuiPerfTool* perf, const char* filter_hint
         modified = true;
     }
 
+    int visible_label_count = 0;
+    float max_label_width = 0.0f;
+    for (const char* label : *labels)
+    {
+        if (strstr(label, perf->_Filter) == NULL)   // Filter out entries not matching a filter query
+            continue;
+        max_label_width = ImMax(max_label_width, ImGui::CalcTextSize(label).x);
+        visible_label_count++;
+    }
+
+    ImGui::Separator();
+
+    // For sake of simplicity (and at the expense of scrollbar-wide space between label and checkmark) we always make space for vertical scrollbar, even though it may not exist.
+    float max_menu_width = max_label_width + g.FontSize * 1.20f + g.Style.ItemSpacing.x + g.Style.ScrollbarSize;  // FIXME: Check mark size hardcoded.
+    ImVec2 child_size;
+    child_size.x = ImMax(max_menu_width, ImGui::GetContentRegionAvail().x);
+    child_size.y = ImMin(g.CurrentWindow->Viewport->GetWorkRect().Max.y - g.Style.WindowPadding.y - ImGui::GetCursorScreenPos().y, visible_label_count * (g.FontSize + g.Style.ItemInnerSpacing.y));
+    ImGui::BeginChild("ScrollArea", child_size);
+
     // Render perf labels in reversed order. Labels are sorted, but stored in reversed order to render them on the plot
     // from top down (ImPlot renders stuff from bottom up).
-    int filtered_entries = 0;
     for (int i = labels->Size - 1; i >= 0; i--)
     {
         const char* label = (*labels)[i];
         if (strstr(label, perf->_Filter) == NULL)   // Filter out entries not matching a filter query
             continue;
-
-        if (filtered_entries == 0)
-            ImGui::Separator();
 
         ImGuiID build_id = ImHashStr(label);
         bool visible = visibility.GetBool(build_id, true);
@@ -476,8 +491,9 @@ static bool RenderMultiSelectFilter(ImGuiPerfTool* perf, const char* filter_hint
                 visibility.SetBool(build_id, !visibility.GetBool(build_id, true));
             }
         }
-        filtered_entries++;
     }
+
+    ImGui::EndChild();
 
     if (!io.KeyShift)
         ImGui::PopItemFlag();
