@@ -902,12 +902,6 @@ const char* ImGuiTestEngine_GetVerboseLevelName(ImGuiTestVerboseLevel v)
 
 bool ImGuiTestEngine_CaptureScreenshot(ImGuiTestEngine* engine, ImGuiCaptureArgs* args)
 {
-    if (engine->IO.ScreenCaptureFunc == NULL)
-    {
-        IM_ASSERT(0);
-        return false;
-    }
-
     IM_ASSERT(engine->CaptureCurrentArgs == NULL && "Nested captures are not supported.");
 
     // Graphics API must render a window so it can be captured
@@ -947,12 +941,6 @@ bool ImGuiTestEngine_CaptureScreenshot(ImGuiTestEngine* engine, ImGuiCaptureArgs
 
 bool ImGuiTestEngine_CaptureBeginVideo(ImGuiTestEngine* engine, ImGuiCaptureArgs* args)
 {
-    if (engine->IO.ScreenCaptureFunc == NULL)
-    {
-        IM_ASSERT(0);
-        return false;
-    }
-
     IM_ASSERT(engine->CaptureCurrentArgs == NULL && "Nested captures are not supported.");
 
     // RunSpeed set to Fast      -> Switch to Cinematic, no throttle

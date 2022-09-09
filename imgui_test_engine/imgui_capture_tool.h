@@ -51,7 +51,8 @@ enum ImGuiCaptureFlags_ : unsigned int
     ImGuiCaptureFlags_IncludeTooltipsAndPopups  = 1 << 2,   // Expand capture area to automatically include visible popups and tooltips (use with ImGuiCaptureflags_HideOtherWindows)
     ImGuiCaptureFlags_HideMouseCursor           = 1 << 3,   // Hide render software mouse cursor during capture.
     ImGuiCaptureFlags_Instant                   = 1 << 4,   // Perform capture on very same frame. Only works when capturing a rectangular region. Unsupported features: content stitching, window hiding, window relocation.
-    ImGuiCaptureFlags_NoSave                    = 1 << 5    // Do not save output image.
+    ImGuiCaptureFlags_NoSave                    = 1 << 5,   // Do not save output image.
+    ImGuiCaptureFlags_NoErrors                  = 1 << 6    // Skip printing of errors.
 };
 
 // Defines input and output arguments for capture process.

@@ -84,8 +84,6 @@ static void TestSuite_LoadFonts(float dpi_scale);
 // Test Application
 //-------------------------------------------------------------------------
 
-struct ImGuiApp;
-
 struct TestSuiteApp
 {
     // Main State
@@ -497,7 +495,7 @@ int main(int argc, char** argv)
     // Set up source file opener and framebuffer capture functions
     test_io.SrcFileOpenFunc = app->OptSourceFileOpener.empty() ? NULL : SrcFileOpenerFunc;
     test_io.SrcFileOpenUserData = (void*)app;
-    test_io.ScreenCaptureFunc = ImGuiApp_ScreenCaptureFunc;
+    test_io.ScreenCaptureFunc = app->AppWindow->CaptureFramebuffer ? ImGuiApp_ScreenCaptureFunc : NULL;
     test_io.ScreenCaptureUserData = (void*)app->AppWindow;
 
     // Enable test result export

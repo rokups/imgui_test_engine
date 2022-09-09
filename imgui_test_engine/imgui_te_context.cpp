@@ -714,13 +714,13 @@ ImVec2 ImGuiTestContext::GetMainMonitorWorkSize()
 static bool ImGuiTestContext_CanCaptureScreenshot(ImGuiTestContext* ctx)
 {
     ImGuiTestEngineIO* io = ctx->EngineIO;
-    return io->ConfigCaptureEnabled;
+    return io->ConfigCaptureEnabled && io->ScreenCaptureFunc != NULL;
 }
 
 static bool ImGuiTestContext_CanCaptureVideo(ImGuiTestContext* ctx)
 {
     ImGuiTestEngineIO* io = ctx->EngineIO;
-    return io->ConfigCaptureEnabled && ImFileExist(io->VideoCaptureEncoderPath);
+    return io->ConfigCaptureEnabled && io->ScreenCaptureFunc != NULL && ImFileExist(io->VideoCaptureEncoderPath);
 }
 
 bool ImGuiTestContext::CaptureAddWindow(ImGuiTestRef ref)
@@ -748,6 +748,7 @@ bool ImGuiTestContext::CaptureScreenshot(int capture_flags)
     LogInfo("CaptureScreenshot()");
     ImGuiCaptureArgs* args = CaptureArgs;
     args->InFlags = capture_flags;
+    args->InFlags |= ImGuiCaptureFlags_NoErrors;
 
     // Auto filename
     CaptureInitAutoFilename(this, ".png");
@@ -758,9 +759,18 @@ bool ImGuiTestContext::CaptureScreenshot(int capture_flags)
         args->InFlags |= ImGuiCaptureFlags_NoSave;
     bool ret = ImGuiTestEngine_CaptureScreenshot(Engine, args);
     if (can_capture)
+    {
         LogInfo("Saved '%s' (%d*%d pixels)", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
+    }
     else
-        LogWarning("Skipped saving '%s' (%d*%d pixels) (enable in 'Misc->Options')", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
+    {
+        if (!EngineIO->ConfigCaptureEnabled)
+            LogWarning("Skipped saving '%s' (%d*%d pixels) (enable in 'Misc->Options')", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
+        else if (EngineIO->ScreenCaptureFunc == NULL)
+            LogWarning("Skipped saving '%s' (%d*%d pixels) (capture function is disabled)", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
+        else
+            LogWarning("Skipped saving '%s' (%d*%d pixels)", args->InOutputFile, (int)args->OutImageSize.x, (int)args->OutImageSize.y);
+    }
     return ret;
 #else
     IM_UNUSED(args);
@@ -806,6 +816,7 @@ bool ImGuiTestContext::CaptureBeginVideo()
     IMGUI_TEST_CONTEXT_REGISTER_DEPTH(this);
     LogInfo("CaptureBeginVideo()");
     ImGuiCaptureArgs* args = CaptureArgs;
+    args->InFlags |= ImGuiCaptureFlags_NoErrors;
 
     // Auto filename
     CaptureInitAutoFilename(this, EngineIO->VideoCaptureExtension);
@@ -847,6 +858,8 @@ bool ImGuiTestContext::CaptureEndVideo()
     {
         if (!EngineIO->ConfigCaptureEnabled)
             LogWarning("Skipped saving '%s' video because: io.ConfigCaptureEnabled == false (enable in Misc->Options)", args->InOutputFile);
+        else if (EngineIO->ScreenCaptureFunc == NULL)
+            LogWarning("Skipped saving '%s' video because: Capture function is disabled.", args->InOutputFile);
         else
             LogWarning("Skipped saving '%s' video because: Video Encoder not found.", args->InOutputFile);
     }

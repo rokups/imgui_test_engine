@@ -170,7 +170,7 @@ static bool ImGuiApp_ImplNull_NewFrame(ImGuiApp* app_opaque)
 
     return true;
 }
-
+/*
 static bool ImGuiApp_ImplNull_CaptureFramebuffer(ImGuiApp* app, int x, int y, int w, int h, unsigned int* pixels, void* user_data)
 {
     IM_UNUSED(app);
@@ -180,7 +180,7 @@ static bool ImGuiApp_ImplNull_CaptureFramebuffer(ImGuiApp* app, int x, int y, in
     memset(pixels, 0, (size_t)(w * h) * sizeof(unsigned int));
     return false;
 }
-
+*/
 static void ImGuiApp_ImplNull_RenderDrawData(ImDrawData* draw_data)
 {
     for (int n = 0; n < draw_data->CmdListsCount; n++)
@@ -224,7 +224,7 @@ ImGuiApp* ImGuiApp_ImplNull_Create()
     intf->Render                = ImGuiApp_ImplNull_Render;
     intf->ShutdownCloseWindow   = [](ImGuiApp* app) { IM_UNUSED(app); };
     intf->ShutdownBackends      = [](ImGuiApp* app) { IM_UNUSED(app); };
-    intf->CaptureFramebuffer    = ImGuiApp_ImplNull_CaptureFramebuffer;
+    intf->CaptureFramebuffer    = NULL; //ImGuiApp_ImplNull_CaptureFramebuffer
     intf->Destroy               = [](ImGuiApp* app) { delete (ImGuiApp_ImplNull*)app; };
     return intf;
 }

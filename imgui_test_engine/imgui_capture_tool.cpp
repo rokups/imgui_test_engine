@@ -132,7 +132,7 @@ void ImGuiCaptureImageBuf::RemoveAlpha()
 //-----------------------------------------------------------------------------
 
 #if IMGUI_TEST_ENGINE_ENABLE_CAPTURE
-static void HideOtherWindows(const ImGuiCaptureArgs* args)
+static void ImGuiCaptureContext_HideOtherWindows(const ImGuiCaptureArgs* args)
 {
     ImGuiContext& g = *GImGui;
     for (ImGuiWindow* window : g.Windows)
@@ -215,17 +215,21 @@ ImGuiCaptureStatus ImGuiCaptureContext::CaptureUpdate(ImGuiCaptureArgs* args)
 
     // Sanity checks
     IM_ASSERT(args != NULL);
-    IM_ASSERT(ScreenCaptureFunc != NULL);
     IM_ASSERT(args->InOutputImageBuf != NULL || args->InOutputFile[0]);
     IM_ASSERT(args->InRecordFPSTarget != 0);
+
+    const bool is_printing_errors = (args->InFlags & ImGuiCaptureFlags_NoErrors) == 0;
+    const bool is_capture_disabled = ScreenCaptureFunc == NULL;
+    const bool is_no_save = (args->InFlags & ImGuiCaptureFlags_NoSave) != 0 || is_capture_disabled;
     if (_VideoRecording)
     {
         IM_ASSERT(args->InOutputFile[0] && "Output filename must be specified when recording videos.");
         IM_ASSERT(args->InOutputImageBuf == NULL && "Output buffer cannot be specified when recording videos.");
         IM_ASSERT((args->InFlags & ImGuiCaptureFlags_StitchAll) == 0 && "Image stitching is not supported when recording videos.");
-        if (!ImFileExist(VideoCaptureEncoderPath))
+        if (!is_capture_disabled && !ImFileExist(VideoCaptureEncoderPath))
         {
-            fprintf(stderr, "Video encoder not found at \"%s\", video capturing failed.\n", VideoCaptureEncoderPath);
+            if (is_printing_errors)
+                fprintf(stderr, "Video encoder not found at \"%s\", video capturing failed.\n", VideoCaptureEncoderPath);
             return ImGuiCaptureStatus_Error;
         }
     }
@@ -235,7 +239,7 @@ ImGuiCaptureStatus ImGuiCaptureContext::CaptureUpdate(ImGuiCaptureArgs* args)
 
     // Hide other windows so they can't be seen visible behind captured window
     if ((args->InFlags & ImGuiCaptureflags_IncludeOtherWindows) == 0 && !args->InCaptureWindows.empty())
-        HideOtherWindows(args);
+        ImGuiCaptureContext_HideOtherWindows(args);
 
     // Recording will be set to false when we are stopping video capture.
     const bool is_recording_video = IsCapturingVideo();
@@ -270,6 +274,9 @@ ImGuiCaptureStatus ImGuiCaptureContext::CaptureUpdate(ImGuiCaptureArgs* args)
     //-----------------------------------------------------------------
     if (_FrameNo == 0)
     {
+        if (is_capture_disabled && is_printing_errors)
+            fprintf(stderr, "Screen capture function is disabled.\n");
+
         if (is_recording_video)
         {
             // Determinate size alignment
@@ -446,10 +453,57 @@ ImGuiCaptureStatus ImGuiCaptureContext::CaptureUpdate(ImGuiCaptureArgs* args)
                 IM_ASSERT(h == output->Height);
 
             const ImGuiID viewport_id = 0;
-            if (!ScreenCaptureFunc(viewport_id, x1, y1, w, h, &output->Data[_ChunkNo * w * capture_height], ScreenCaptureUserData))
+            if (!is_capture_disabled)
             {
-                fprintf(stderr, "Screen capture function failed.\n");
-                return ImGuiCaptureStatus_Error;
+                if (is_recording_video && !is_no_save)
+                {
+                    // _VideoEncoderPipe is NULL when recording just started. Initialize recording state.
+                    if (_VideoEncoderPipe == NULL)
+                    {
+                        // First video frame, initialize now that dimensions are known.
+                        const unsigned int width = (unsigned int)capture_rect.GetWidth();
+                        const unsigned int height = (unsigned int)capture_rect.GetHeight();
+                        IM_ASSERT(VideoCaptureEncoderPath != NULL && VideoCaptureEncoderPath[0]);
+                        Str256f encoder_exe(VideoCaptureEncoderPath), cmd("");
+                        ImPathFixSeparatorsForCurrentOS(encoder_exe.c_str());
+                        ImFileCreateDirectoryChain(args->InOutputFile, ImPathFindFilename(args->InOutputFile));
+#if _WIN32
+                        cmd.append("\"");   // On windows, entire command wrapped in quotes allows use of quotes for parameters.
+#endif
+                        const char* extension = (char*)ImPathFindExtension(args->InOutputFile);
+                        if (strcmp(extension, ".gif") == 0)
+                        {
+                            IM_ASSERT(GifCaptureEncoderParams != NULL && GifCaptureEncoderParams[0]);
+                            cmd.appendf("\"%s\" %s", encoder_exe.c_str(), GifCaptureEncoderParams);
+                        }
+                        else
+                        {
+                            IM_ASSERT(VideoCaptureEncoderParams != NULL && VideoCaptureEncoderParams[0]);
+                            cmd.appendf("\"%s\" %s", encoder_exe.c_str(), VideoCaptureEncoderParams);
+                        }
+#if _WIN32
+                        cmd.append("\"");
+#endif
+                        ImStrReplace(&cmd, "$FPS", Str16f("%d", args->InRecordFPSTarget).c_str());
+                        ImStrReplace(&cmd, "$WIDTH", Str16f("%d", width).c_str());
+                        ImStrReplace(&cmd, "$HEIGHT", Str16f("%d", height).c_str());
+                        ImStrReplace(&cmd, "$OUTPUT", args->InOutputFile);
+                        fprintf(stdout, "# %s\n", cmd.c_str());
+                        _VideoEncoderPipe = ImOsPOpen(cmd.c_str(), "w");
+                        IM_ASSERT(_VideoEncoderPipe != NULL);
+                    }
+                }
+
+                if (!ScreenCaptureFunc(viewport_id, x1, y1, w, h, &output->Data[_ChunkNo * w * capture_height], ScreenCaptureUserData))
+                {
+                    if (is_printing_errors)
+                        fprintf(stderr, "Screen capture function failed.\n");
+                    return ImGuiCaptureStatus_Error;
+                }
+
+                // Save new video frame
+                if (is_recording_video && !is_no_save)
+                    fwrite(output->Data, 1, output->Width * output->Height * 4, _VideoEncoderPipe);
             }
 
             if (args->InFlags & ImGuiCaptureFlags_StitchAll)
@@ -461,47 +515,6 @@ ImGuiCaptureStatus ImGuiCaptureContext::CaptureUpdate(ImGuiCaptureArgs* args)
                 _ChunkNo++;
             }
 
-            if (is_recording_video && (args->InFlags & ImGuiCaptureFlags_NoSave) == 0)
-            {
-                // _VideoEncoderPipe is NULL when recording just started. Initialize recording state.
-                if (_VideoEncoderPipe == NULL)
-                {
-                    // First video frame, initialize now that dimensions are known.
-                    const unsigned int width = (unsigned int)capture_rect.GetWidth();
-                    const unsigned int height = (unsigned int)capture_rect.GetHeight();
-                    IM_ASSERT(VideoCaptureEncoderPath != NULL && VideoCaptureEncoderPath[0]);
-                    Str256f encoder_exe(VideoCaptureEncoderPath), cmd("");
-                    ImPathFixSeparatorsForCurrentOS(encoder_exe.c_str());
-                    ImFileCreateDirectoryChain(args->InOutputFile, ImPathFindFilename(args->InOutputFile));
-#if _WIN32
-                    cmd.append("\"");   // On windows, entire command wrapped in quotes allows use of quotes for parameters.
-#endif
-                    const char* extension = (char*)ImPathFindExtension(args->InOutputFile);
-                    if (strcmp(extension, ".gif") == 0)
-                    {
-                        IM_ASSERT(GifCaptureEncoderParams != NULL && GifCaptureEncoderParams[0]);
-                        cmd.appendf("\"%s\" %s", encoder_exe.c_str(), GifCaptureEncoderParams);
-                    }
-                    else
-                    {
-                        IM_ASSERT(VideoCaptureEncoderParams != NULL && VideoCaptureEncoderParams[0]);
-                        cmd.appendf("\"%s\" %s", encoder_exe.c_str(), VideoCaptureEncoderParams);
-                    }
-#if _WIN32
-                    cmd.append("\"");
-#endif
-                    ImStrReplace(&cmd, "$FPS", Str16f("%d", args->InRecordFPSTarget).c_str());
-                    ImStrReplace(&cmd, "$WIDTH", Str16f("%d", width).c_str());
-                    ImStrReplace(&cmd, "$HEIGHT", Str16f("%d", height).c_str());
-                    ImStrReplace(&cmd, "$OUTPUT", args->InOutputFile);
-                    fprintf(stdout, "# %s\n", cmd.c_str());
-                    _VideoEncoderPipe = ImOsPOpen(cmd.c_str(), "w");
-                    IM_ASSERT(_VideoEncoderPipe != NULL);
-                }
-
-                // Save new video frame
-                fwrite(output->Data, 1, output->Width * output->Height * 4, _VideoEncoderPipe);
-            }
             if (is_recording_video)
                 _VideoLastFrameTime = current_time_sec;
         }
@@ -520,7 +533,7 @@ ImGuiCaptureStatus ImGuiCaptureContext::CaptureUpdate(ImGuiCaptureArgs* args)
             else if (args->InOutputImageBuf == NULL)
             {
                 // Save single frame.
-                if ((args->InFlags & ImGuiCaptureFlags_NoSave) == 0)
+                if (!is_no_save)
                     output->SaveFile(args->InOutputFile);
                 output->Clear();
             }
@@ -970,8 +983,10 @@ bool ImGuiCaptureToolUI::_InitializeOutputFile()
     ImPathFixSeparatorsForCurrentOS(_CaptureArgs.InOutputFile);
     if (!ImFileCreateDirectoryChain(_CaptureArgs.InOutputFile, ImPathFindFilename(_CaptureArgs.InOutputFile)))
     {
-        fprintf(stderr, "ImGuiCaptureContext: unable to create directory for file '%s'.\n",
-                _CaptureArgs.InOutputFile);
+        const bool is_printing_errors = (_CaptureArgs.InFlags & ImGuiCaptureFlags_NoErrors) == 0;
+        if (is_printing_errors)
+            fprintf(stderr, "ImGuiCaptureContext: unable to create directory for file '%s'.\n",
+                    _CaptureArgs.InOutputFile);
         return false;
     }
     return true;
