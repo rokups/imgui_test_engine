@@ -389,6 +389,42 @@ int main(int argc, char** argv)
     app->OptGui = true;
 #endif
 
+    // Setup Dear ImGui binding
+    // (We use a custom allocator but mostly to exercise that overriding)
+    IMGUI_CHECKVERSION();
+    ImGui::SetAllocatorFunctions(&MallocWrapper, &FreeWrapper, app);
+    ImGui::CreateContext();
+#if IMGUI_TEST_ENGINE_ENABLE_IMPLOT
+    ImPlot::CreateContext();
+#endif
+
+    // Setup Configuration & Style
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = "imgui.ini";
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+#ifdef IMGUI_HAS_VIEWPORT
+    if (app->OptViewports)
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+#endif
+#ifdef IMGUI_HAS_DOCK
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+#endif
+    ImGui::StyleColorsDark();
+
+    // Create TestEngine context. Done early, so early ini reading has a destination (ImGuiTestEngineIO) exists.
+    IM_ASSERT(app->TestEngine == NULL);
+    ImGuiTestEngine* engine = ImGuiTestEngine_CreateContext();
+    app->TestEngine = engine;
+    ImGuiTestEngineIO& test_io = ImGuiTestEngine_GetIO(engine);
+
+    // Load settings early, so command line parameters can override them.
+    if (io.IniFilename)
+        ImGui::LoadIniSettingsFromDisk(io.IniFilename);
+
+    // FIXME: Use -nocapture value read from ini as a default. It will be overridden if -nocapture is specified on command line.
+    //  Command line parameter handling needs to be reworked so this is not required.
+    app->OptCaptureEnabled = test_io.ConfigCaptureEnabled;
+
     // Parse command-line arguments
 #ifdef CMDLINE_ARGS
     if (argc == 1)
@@ -425,28 +461,6 @@ int main(int argc, char** argv)
             app->OptVerboseLevelError = ImGuiTestVerboseLevel_Debug;
     }
 
-    // Setup Dear ImGui binding
-    // (We use a custom allocator but mostly to exercise that overriding)
-    IMGUI_CHECKVERSION();
-    ImGui::SetAllocatorFunctions(&MallocWrapper, &FreeWrapper, app);
-    ImGui::CreateContext();
-#if IMGUI_TEST_ENGINE_ENABLE_IMPLOT
-    ImPlot::CreateContext();
-#endif
-
-    // Setup Configuration & Style
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = "imgui.ini";
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-#ifdef IMGUI_HAS_VIEWPORT
-    if (app->OptViewports)
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-#endif
-#ifdef IMGUI_HAS_DOCK
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-#endif
-    ImGui::StyleColorsDark();
-
     // Creates Application Wrapper
     if (app->OptGui)
         app->AppWindow = ImGuiApp_ImplDefault_Create();
@@ -455,13 +469,7 @@ int main(int argc, char** argv)
     app->AppWindow->DpiAware = false;
     app->AppWindow->MockViewports = app->OptViewports && app->OptMockViewports;
 
-    // Create TestEngine context
-    IM_ASSERT(app->TestEngine == NULL);
-    ImGuiTestEngine* engine = ImGuiTestEngine_CreateContext();
-    app->TestEngine = engine;
-
     // Apply Options to TestEngine
-    ImGuiTestEngineIO& test_io = ImGuiTestEngine_GetIO(engine);
     test_io.ConfigRunSpeed = app->OptRunSpeed;
     test_io.ConfigVerboseLevel = app->OptVerboseLevelBasic;
     test_io.ConfigVerboseLevelOnError = app->OptVerboseLevelError;
@@ -491,6 +499,13 @@ int main(int argc, char** argv)
             test_io.ConfigBreakOnError = true;
         }
     }
+
+    // FIXME: Disable saving of ini settings when test suite executes in non-interactive mode. This works around the
+    //  case where command line options would become permanent when saved to ini. Currently only really useful for
+    //  -nocapture flag. Does not interfere with reading of settings, because it is done manually earlier in this
+    //  function. If -nocapture is specified in interactive mode, it will still get saved to ini.
+    if (!app->OptGui || !app->TestsToRun.empty())
+        io.IniFilename = NULL;
 
     // Set up source file opener and framebuffer capture functions
     test_io.SrcFileOpenFunc = app->OptSourceFileOpener.empty() ? NULL : SrcFileOpenerFunc;
